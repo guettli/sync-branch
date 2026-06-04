@@ -11,7 +11,7 @@ Each time you run `git commit`, the hook:
 2. **Merges** any new commits from `origin/<your-branch>` into your local branch
    (fast-forward when possible, regular merge otherwise).
 3. **Detects the base branch** (e.g. `main`) by calling the forge API
-   (GitHub, GitLab, or Forgejo — auto-detected from the remote URL).
+   (GitHub, GitLab, or Forgejo — auto-detected from the remote URL via [git-pkgs/forge](https://github.com/git-pkgs/forge)).
 4. **Merges** any new commits from `origin/<base-branch>` into your local branch
    so you stay on top of upstream changes.
 
@@ -25,7 +25,7 @@ Add the hook to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/guettli/pre-commit-branch-up-to-date
-    rev: v0.1.0   # replace with the latest tag
+    rev: v0.0.1
     hooks:
       - id: branch-up-to-date
 ```
@@ -50,9 +50,10 @@ before running `git commit`:
 |---------|-------------------------------|
 | GitHub  | `GITHUB_TOKEN` or `GH_TOKEN`  |
 | GitLab  | `GITLAB_TOKEN`                |
-| Forgejo | `GITEA_TOKEN`                 |
+| Forgejo | `FORGEJO_TOKEN`               |
+| Gitea   | `GITEA_TOKEN`                 |
 
-You can also store tokens in `~/.config/forge/config`:
+You can also store tokens in `~/.config/forge/config` ([docs](https://github.com/git-pkgs/forge#authentication)):
 
 ```ini
 [github.com]
