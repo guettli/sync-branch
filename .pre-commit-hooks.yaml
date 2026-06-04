@@ -1,0 +1,10 @@
+- id: branch-up-to-date
+  name: Branch up to date
+  description: >
+    Fetches origin, merges any new commits from origin/<branch>, then detects
+    the repository's base branch via the forge API (GitHub / GitLab / Forgejo)
+    and merges any new base-branch commits into the current branch.
+  language: golang
+  entry: pre-commit-branch-up-to-date
+  pass_filenames: false
+  always_run: true
