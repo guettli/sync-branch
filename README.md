@@ -1,7 +1,7 @@
 # pre-commit-branch-up-to-date
 
-A [pre-commit](https://pre-commit.com) hook that keeps your local branch in sync
-before every commit — no more "forgot to pull" surprises.
+A [pre-commit](https://pre-commit.com) hook that keeps your local branch in sync before every commit
+— no more "forgot to pull" surprises.
 
 ## What it does
 
