@@ -1,0 +1,5 @@
+repos:
+  - repo: https://github.com/guettli/pre-commit-branch-up-to-date
+    rev: v0.0.1
+    hooks:
+      - id: branch-up-to-date
