@@ -29,9 +29,11 @@ To merge upstream base branch commits (Step 4), `sync-branch` needs to know what
 * **Performance / Offline:** Subsequent runs on the same branch are instant and don't need network access or API tokens because the base branch is cached locally.
 * **VS Code Integration:** VS Code and extensions (like GitLens) natively use `branch.<branch>.vscode-merge-base` to determine the comparison base branch for showing Incoming/Outgoing changes in the Source Control view. By setting this config value, `sync-branch` configures VS Code automatically.
 * **Custom Base Branches:** If your branch is based on another feature branch instead of `main`, you can manually change this config value:
+
   ```sh
   git config branch.my-feature.vscode-merge-base origin/parent-feature
   ```
+
   `sync-branch` will then automatically pull and merge from `origin/parent-feature` instead.
 
 ## Standalone Usage
@@ -119,8 +121,8 @@ pre-commit install
 
 The pre-commit config in this repo uses two hooks:
 
-- `branch-up-to-date` — the hook itself (dogfooding).
-- `check-pre-push-hook` — verifies the pre-push hook is installed on every commit.
+* `branch-up-to-date` — the hook itself (dogfooding).
+* `check-pre-push-hook` — verifies the pre-push hook is installed on every commit.
 
 The pre-push hook (`scripts/pre-push-hook.sh`) runs only when pushing to `main`
 and checks that the `rev:` in `.pre-commit-config.yaml` and `README.md` both
