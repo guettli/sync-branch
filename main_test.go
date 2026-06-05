@@ -173,7 +173,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatalf("failed to create base branch: %v", err)
 	}
 	// Create an initial commit on base branch
-	if err := os.WriteFile("temp-base.txt", []byte("base initial"), 0644); err != nil {
+	if err := os.WriteFile("temp-base.txt", []byte("base initial"), 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 	if err := runGit("add", "temp-base.txt"); err != nil {
@@ -199,7 +199,7 @@ func TestIntegration(t *testing.T) {
 	if err := runGit("checkout", baseBranch); err != nil {
 		t.Fatalf("failed to checkout base branch: %v", err)
 	}
-	if err := os.WriteFile("temp-base.txt", []byte("base updated"), 0644); err != nil {
+	if err := os.WriteFile("temp-base.txt", []byte("base updated"), 0o644); err != nil {
 		t.Fatalf("failed to update temp file: %v", err)
 	}
 	if err := runGit("add", "temp-base.txt"); err != nil {
@@ -227,12 +227,6 @@ func TestIntegration(t *testing.T) {
 	outputStr, err := runHook(t, binaryPath)
 	if err != nil && !strings.Contains(outputStr, "merge") {
 		t.Fatalf("hook failed to run: %v\nOutput: %s", err, outputStr)
-	}
-
-	// Verify that the output mentions taking the value from config
-	expectedMsg := fmt.Sprintf("Value taken from branch.%s.vscode-merge-base: origin/%s", featureBranch, baseBranch)
-	if !strings.Contains(outputStr, expectedMsg) {
-		t.Errorf("expected output to contain %q, but got %q", expectedMsg, outputStr)
 	}
 
 	// Verify that the commit from base branch was merged
@@ -328,7 +322,7 @@ func TestStep1Merge(t *testing.T) {
 
 	// 2. Make a commit on origin/tempBranch
 	tempFile := "temp-step1.txt"
-	if err := os.WriteFile(tempFile, []byte("step1 content"), 0644); err != nil {
+	if err := os.WriteFile(tempFile, []byte("step1 content"), 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 	defer os.Remove(tempFile)

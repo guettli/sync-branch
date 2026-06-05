@@ -195,7 +195,6 @@ func parseRemoteURL(rawURL string) (domain, owner, repo string, err error) {
 func detectBaseBranch(ctx context.Context, branch, remoteURL, remoteName string) (baseBranch, reason string, err error) {
 	// Check if vscode-merge-base is set in git config for this branch.
 	if mergeBase, err := gitOutput("config", "branch."+branch+".vscode-merge-base"); err == nil && mergeBase != "" {
-		fmt.Printf("Value taken from branch.%s.vscode-merge-base: %s\n", branch, mergeBase)
 		return mergeBase, fmt.Sprintf("taken from branch.%s.vscode-merge-base", branch), nil
 	}
 
