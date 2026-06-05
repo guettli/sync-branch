@@ -25,7 +25,7 @@ Add the hook to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/guettli/pre-commit-branch-up-to-date
-    rev: v0.0.5
+    rev: v0.0.6
     hooks:
       - id: branch-up-to-date
 ```
