@@ -79,13 +79,12 @@ func run(ctx context.Context) error {
 	}
 
 	// Step 2: detect the repository's base branch and integrate its new commits.
-	fmt.Printf("Detecting base branch...\n")
-	baseBranch, err := detectBaseBranch(ctx, remoteURL)
+	baseBranch, baseBranchReason, err := detectBaseBranch(ctx, remoteURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot detect base branch: %v\n", err)
 		return nil
 	}
-	fmt.Printf("Base branch: %s\n", baseBranch)
+	fmt.Printf("Base branch: %s (%s)\n", baseBranch, baseBranchReason)
 
 	if branch == baseBranch {
 		fmt.Printf("Already on base branch, skipping base-branch merge\n")
@@ -176,18 +175,22 @@ func parseRemoteURL(rawURL string) (domain, owner, repo string, err error) {
 // detectBaseBranch returns the repository's default branch.
 // It first checks the local git ref refs/remotes/origin/HEAD (set at clone time,
 // requires no network or credentials), then falls back to querying the forge API.
-func detectBaseBranch(ctx context.Context, remoteURL string) (string, error) {
+func detectBaseBranch(ctx context.Context, remoteURL string) (branch, reason string, err error) {
 	// Fast path: git symbolic-ref refs/remotes/origin/HEAD → refs/remotes/origin/main
 	if ref, err := gitOutput("symbolic-ref", "refs/remotes/origin/HEAD"); err == nil {
-		return strings.TrimPrefix(ref, "refs/remotes/origin/"), nil
+		return strings.TrimPrefix(ref, "refs/remotes/origin/"), "from refs/remotes/origin/HEAD", nil
 	}
 
 	// Slow path: ask the forge API.
 	domain, owner, repo, err := parseRemoteURL(remoteURL)
 	if err != nil {
-		return "", fmt.Errorf("parse remote URL %q: %w", remoteURL, err)
+		return "", "", fmt.Errorf("parse remote URL %q: %w", remoteURL, err)
 	}
-	return getDefaultBranch(ctx, domain, owner, repo)
+	b, err := getDefaultBranch(ctx, domain, owner, repo)
+	if err != nil {
+		return "", "", err
+	}
+	return b, fmt.Sprintf("default branch on %s", domain), nil
 }
 
 // getDefaultBranch contacts the forge at domain and returns the repository's
