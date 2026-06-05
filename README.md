@@ -116,7 +116,7 @@ import "github.com/guettli/sync-branch/sync"
 err := sync.Sync("/path/to/git-repo")
 ```
 
-For more details on the underlying forge integration, see the [go-pkgs/forge documentation on pkg.go.dev](https://pkg.go.dev/github.com/git-pkgs/forge).
+For package documentation, see the [sync-branch/sync documentation on pkg.go.dev](https://pkg.go.dev/github.com/guettli/sync-branch/sync).
 
 ## Development
 
