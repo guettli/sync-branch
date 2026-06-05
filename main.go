@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	forge "github.com/git-pkgs/forge"
+	gitea "github.com/git-pkgs/forge/gitea"
+	ghforge "github.com/git-pkgs/forge/github"
+	glforge "github.com/git-pkgs/forge/gitlab"
 	"github.com/spf13/cobra"
 )
 
@@ -50,19 +54,25 @@ func run(ctx context.Context) error {
 		return nil // detached HEAD, nothing to check
 	}
 
-	remoteURL, err := gitOutput("remote", "get-url", "origin")
-	if err != nil {
-		return nil // no origin remote configured
+	remoteName := "origin"
+	if r, err := gitOutput("config", "branch."+branch+".remote"); err == nil && r != "" {
+		remoteName = r
 	}
 
-	fmt.Printf("Fetching origin...\n")
-	if err := gitRun("fetch", "--quiet", "origin"); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: git fetch origin failed: %v\n", err)
+	remoteURL, err := gitOutput("remote", "get-url", remoteName)
+	if err != nil {
+		return nil // no remote configured
+	}
+
+	fmt.Printf("Fetching %s...\n", remoteName)
+	// Fetch to update remote-tracking refs.
+	if err := gitRun("fetch", "--quiet", remoteName); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: git fetch %s failed: %v\n", remoteName, err)
 		// Continue with stale remote refs rather than blocking the commit.
 	}
 
 	// Step 1: integrate any new commits from origin/<branch>.
-	originRef := "origin/" + branch
+	originRef := remoteName + "/" + branch
 	behind, err := countBehind("HEAD", originRef)
 	if err == nil {
 		if behind > 0 {
@@ -79,19 +89,26 @@ func run(ctx context.Context) error {
 	}
 
 	// Step 2: detect the repository's base branch and integrate its new commits.
-	baseBranch, baseBranchReason, err := detectBaseBranch(ctx, remoteURL)
+	baseBranch, baseBranchReason, err := detectBaseBranch(ctx, branch, remoteURL, remoteName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot detect base branch: %v\n", err)
 		return nil
 	}
 	fmt.Printf("Base branch: %s (%s)\n", baseBranch, baseBranchReason)
 
-	if branch == baseBranch {
+	localBaseBranch := baseBranch
+	if strings.HasPrefix(localBaseBranch, remoteName+"/") {
+		localBaseBranch = strings.TrimPrefix(localBaseBranch, remoteName+"/")
+	}
+	if branch == localBaseBranch {
 		fmt.Printf("Already on base branch, skipping base-branch merge\n")
 		return nil
 	}
 
-	baseRef := "origin/" + baseBranch
+	baseRef := baseBranch
+	if !strings.HasPrefix(baseRef, remoteName+"/") {
+		baseRef = remoteName + "/" + baseRef
+	}
 	behind, err = countBehind("HEAD", baseRef)
 	if err != nil {
 		return nil // baseRef may not exist locally yet
@@ -173,12 +190,13 @@ func parseRemoteURL(rawURL string) (domain, owner, repo string, err error) {
 }
 
 // detectBaseBranch returns the repository's default branch.
-// It first checks the local git ref refs/remotes/origin/HEAD (set at clone time,
-// requires no network or credentials), then falls back to querying the forge API.
-func detectBaseBranch(ctx context.Context, remoteURL string) (branch, reason string, err error) {
-	// Fast path: git symbolic-ref refs/remotes/origin/HEAD → refs/remotes/origin/main
-	if ref, err := gitOutput("symbolic-ref", "refs/remotes/origin/HEAD"); err == nil {
-		return strings.TrimPrefix(ref, "refs/remotes/origin/"), "from refs/remotes/origin/HEAD", nil
+// It first checks the local git config branch.<branch>.vscode-merge-base.
+// If not set, it queries the forge API, sets the config, and returns it.
+func detectBaseBranch(ctx context.Context, branch, remoteURL, remoteName string) (baseBranch, reason string, err error) {
+	// Check if vscode-merge-base is set in git config for this branch.
+	if mergeBase, err := gitOutput("config", "branch."+branch+".vscode-merge-base"); err == nil && mergeBase != "" {
+		fmt.Printf("Value taken from branch.%s.vscode-merge-base: %s\n", branch, mergeBase)
+		return mergeBase, fmt.Sprintf("taken from branch.%s.vscode-merge-base", branch), nil
 	}
 
 	// Slow path: ask the forge API.
@@ -186,11 +204,19 @@ func detectBaseBranch(ctx context.Context, remoteURL string) (branch, reason str
 	if err != nil {
 		return "", "", fmt.Errorf("parse remote URL %q: %w", remoteURL, err)
 	}
-	b, err := getDefaultBranch(ctx, domain, owner, repo)
+	defaultBranch, err := getDefaultBranch(ctx, domain, owner, repo)
 	if err != nil {
 		return "", "", err
 	}
-	return b, fmt.Sprintf("default branch on %s", domain), nil
+
+	// When vscode-merge-base does not exist yet, then add it after getting it from forge.
+	// Be sure it contains upstream as prefix (in most cases "origin").
+	mergeBase := remoteName + "/" + defaultBranch
+	if _, err := gitOutput("config", "branch."+branch+".vscode-merge-base", mergeBase); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to set branch.%s.vscode-merge-base: %v\n", branch, err)
+	}
+
+	return mergeBase, fmt.Sprintf("default branch on %s", domain), nil
 }
 
 // getDefaultBranch contacts the forge at domain and returns the repository's
@@ -198,6 +224,24 @@ func detectBaseBranch(ctx context.Context, remoteURL string) (branch, reason str
 // (GITHUB_TOKEN, GH_TOKEN, GITLAB_TOKEN, etc.) and from ~/.config/forge/config.
 func getDefaultBranch(ctx context.Context, domain, owner, repoName string) (string, error) {
 	client := forge.NewClient()
+
+	token := getToken(domain)
+	builders := forge.ForgeBuilders{
+		GitHub: func(baseURL, token string, hc *http.Client) forge.Forge {
+			return ghforge.New(token, hc)
+		},
+		GitLab: func(baseURL, token string, hc *http.Client) forge.Forge {
+			return glforge.New(baseURL, token, hc)
+		},
+		Gitea: func(baseURL, token string, hc *http.Client) forge.Forge {
+			return gitea.New(baseURL, token, hc)
+		},
+	}
+
+	if err := client.RegisterDomain(ctx, domain, token, builders); err != nil {
+		return "", fmt.Errorf("register domain %s: %w", domain, err)
+	}
+
 	f, err := client.ForgeFor(domain)
 	if err != nil {
 		return "", fmt.Errorf("forge for %s: %w", domain, err)
@@ -211,4 +255,74 @@ func getDefaultBranch(ctx context.Context, domain, owner, repoName string) (stri
 	}
 
 	return r.DefaultBranch, nil
+}
+
+func getToken(domain string) string {
+	// 1. Env variables
+	switch domain {
+	case "github.com":
+		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+			return t
+		}
+		if t := os.Getenv("GH_TOKEN"); t != "" {
+			return t
+		}
+	case "gitlab.com":
+		if t := os.Getenv("GITLAB_TOKEN"); t != "" {
+			return t
+		}
+	}
+	// General fallbacks
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("GH_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("GITLAB_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("FORGEJO_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("GITEA_TOKEN"); t != "" {
+		return t
+	}
+
+	// 2. Read ~/.config/forge/config
+	home, err := os.UserHomeDir()
+	if err == nil {
+		configPath := home + "/.config/forge/config"
+		if data, err := os.ReadFile(configPath); err == nil {
+			// Parse simple ini format
+			lines := strings.Split(string(data), "\n")
+			currentSection := ""
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+					currentSection = strings.TrimSpace(line[1 : len(line)-1])
+				} else if currentSection == domain {
+					parts := strings.SplitN(line, "=", 2)
+					if len(parts) == 2 && strings.TrimSpace(parts[0]) == "token" {
+						return strings.TrimSpace(parts[1])
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Fallback to gh CLI for github.com if installed
+	if domain == "github.com" {
+		if cmdPath, err := exec.LookPath("gh"); err == nil {
+			cmd := exec.Command(cmdPath, "auth", "token")
+			if out, err := cmd.Output(); err == nil {
+				token := strings.TrimSpace(string(out))
+				if token != "" {
+					return token
+				}
+			}
+		}
+	}
+
+	return ""
 }
