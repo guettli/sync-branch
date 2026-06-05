@@ -53,7 +53,7 @@ repos:
   - repo: https://github.com/guettli/sync-branch
     rev: v0.0.10
     hooks:
-      - id: branch-up-to-date
+      - id: sync-branch
 ```
 
 Then install:
@@ -121,7 +121,7 @@ pre-commit install
 
 The pre-commit config in this repo uses two hooks:
 
-* `branch-up-to-date` — the hook itself (dogfooding).
+* `sync-branch` — the hook itself (dogfooding).
 * `check-pre-push-hook` — verifies the pre-push hook is installed on every commit.
 
 The pre-push hook (`scripts/pre-push-hook.sh`) runs only when pushing to `main`

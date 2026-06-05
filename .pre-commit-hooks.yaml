@@ -1,4 +1,4 @@
-- id: branch-up-to-date
+- id: sync-branch
   name: Branch up to date
   description: >
     Fetches origin, merges any new commits from origin/<branch>, then detects
