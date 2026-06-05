@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/guettli/sync-branch/sync"
 )
 
 const prefix = "prefix-integration-test-"
@@ -294,7 +296,7 @@ func TestSyncFunc(t *testing.T) {
 	}
 
 	// Calling Sync should succeed (or exit gracefully for detached HEAD / no remote)
-	err = Sync(tempDir)
+	err = sync.Sync(tempDir)
 	if err != nil {
 		t.Fatalf("expected Sync to succeed or warn, but got error: %v", err)
 	}
@@ -440,6 +442,15 @@ func TestAlreadyOnBaseBranch(t *testing.T) {
 func runGit(args ...string) error {
 	cmd := exec.Command("git", args...)
 	return cmd.Run()
+}
+
+func gitOutput(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func cleanup(t *testing.T) {

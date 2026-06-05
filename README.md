@@ -109,11 +109,11 @@ token = …
 You can import the module and call the exported `Sync` function in your own Go programs:
 
 ```go
-import syncbranch "github.com/guettli/sync-branch"
+import "github.com/guettli/sync-branch/sync"
 
 // Sync checks and updates the local branch in the specified directory.
 // If the directory path is empty, it uses the current working directory.
-err := syncbranch.Sync("/path/to/git-repo")
+err := sync.Sync("/path/to/git-repo")
 ```
 
 For more details on the underlying forge integration, see the [go-pkgs/forge documentation on pkg.go.dev](https://pkg.go.dev/github.com/git-pkgs/forge).
