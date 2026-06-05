@@ -1,4 +1,4 @@
-module github.com/guettli/pre-commit-branch-up-to-date
+module github.com/guettli/sync-branch
 
 go 1.26
 

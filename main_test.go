@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,29 +17,107 @@ const prefix = "prefix-integration-test-"
 var binaryPath string
 
 func TestMain(m *testing.M) {
-	// Save current branch to restore later
-	currentBranch, _ := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
-
-	// Track all changes so they are committed
-	exec.Command("git", "add", "main.go", "go.mod", "go.sum", "main_test.go").Run()
-
-	hasChanges := false
-	cmdStatus := exec.Command("git", "status", "--porcelain")
-	if out, err := cmdStatus.Output(); err == nil && len(strings.TrimSpace(string(out))) > 0 {
-		hasChanges = true
-		exec.Command("git", "commit", "-m", "temporary integration test commit").Run()
+	// 1. Get the current directory (local repo path)
+	localRepo, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get current directory: %v\n", err)
+		os.Exit(1)
 	}
 
+	// 2. Get the remote URL of the current repo
+	remoteURL, err := gitOutput("remote", "get-url", "origin")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to get remote URL: %v\n", err)
+	}
+
+	// 3. Create a temporary directory
+	tempDir, err := os.MkdirTemp("", "sync-branch-test-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 4. Build the test binary into tempDir using the local source code
+	binaryPath = filepath.Join(tempDir, "sync-branch-test-bin")
+	buildCmd := exec.Command("go", "build", "-o", binaryPath, "main.go")
+	buildCmd.Dir = localRepo
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 5. Clone the local repository to tempDir/repo
+	repoDir := filepath.Join(tempDir, "repo")
+	cloneCmd := exec.Command("git", "clone", localRepo, repoDir)
+	cloneCmd.Stdout = os.Stdout
+	cloneCmd.Stderr = os.Stderr
+	if err := cloneCmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to clone repository: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 6. In repoDir, set the remote URL back to the original remote URL
+	if remoteURL != "" {
+		remoteCmd := exec.Command("git", "remote", "set-url", "origin", remoteURL)
+		remoteCmd.Dir = repoDir
+		if err := remoteCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to set remote URL in cloned repo: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	// 7. Copy local files to repoDir to ensure latest changes are present
+	files, err := os.ReadDir(localRepo)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to read local repo dir: %v\n", err)
+		os.Exit(1)
+	}
+	for _, file := range files {
+		name := file.Name()
+		if name == ".git" {
+			continue
+		}
+		srcPath := filepath.Join(localRepo, name)
+		destPath := filepath.Join(repoDir, name)
+
+		if file.IsDir() {
+			if err := copyDir(srcPath, destPath); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to copy dir %s: %v\n", name, err)
+				os.Exit(1)
+			}
+		} else {
+			if err := copyFile(srcPath, destPath); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to copy file %s: %v\n", name, err)
+				os.Exit(1)
+			}
+		}
+	}
+
+	// 8. In repoDir, commit changes if any
+	addCmd := exec.Command("git", "add", "-A")
+	addCmd.Dir = repoDir
+	_ = addCmd.Run()
+
+	statusCmd := exec.Command("git", "status", "--porcelain")
+	statusCmd.Dir = repoDir
+	if out, err := statusCmd.Output(); err == nil && len(strings.TrimSpace(string(out))) > 0 {
+		commitCmd := exec.Command("git", "commit", "-m", "temporary integration test commit")
+		commitCmd.Dir = repoDir
+		_ = commitCmd.Run()
+	}
+
+	// 9. Change directory to repoDir
+	if err := os.Chdir(repoDir); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to change working directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 10. Run the tests
 	code := m.Run()
 
-	if hasChanges {
-		exec.Command("git", "reset", "HEAD~1").Run()
-	}
-	exec.Command("git", "checkout", currentBranch).Run()
-
-	if binaryPath != "" {
-		os.Remove(binaryPath)
-	}
 	os.Exit(code)
 }
 
@@ -45,7 +125,7 @@ func getBinaryPath(t *testing.T) string {
 	if binaryPath != "" {
 		return binaryPath
 	}
-	binaryPath = "./pre-commit-branch-up-to-date-test-bin"
+	binaryPath = "./sync-branch-test-bin"
 	buildCmd := exec.Command("go", "build", "-o", binaryPath, "main.go")
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
@@ -372,4 +452,60 @@ func cleanup(t *testing.T) {
 			}
 		}
 	}
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, in); err != nil {
+		return err
+	}
+
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(dst, si.Mode())
+}
+
+func copyDir(src, dst string) error {
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dst, si.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

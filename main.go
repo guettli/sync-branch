@@ -20,9 +20,9 @@ import (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "pre-commit-branch-up-to-date",
+		Use:   "sync-branch",
 		Short: "Keep your local branch in sync with origin",
-		Long: `pre-commit-branch-up-to-date is a pre-commit hook that fetches origin
+		Long: `sync-branch is a pre-commit hook that fetches origin
 and merges any new commits from origin/<branch> and the repository's base
 branch (e.g. main) into your local branch before every commit.`,
 	}

@@ -1,4 +1,4 @@
-# pre-commit-branch-up-to-date
+# sync-branch
 
 A [pre-commit](https://pre-commit.com) hook that keeps your local branch in sync before every commit
 — no more "forgot to pull" surprises.
@@ -24,7 +24,7 @@ Add the hook to your `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/guettli/pre-commit-branch-up-to-date
+  - repo: https://github.com/guettli/sync-branch
     rev: v0.0.8
     hooks:
       - id: branch-up-to-date
@@ -83,14 +83,14 @@ token = …
 You can run the check directly without a `git commit` trigger:
 
 ```sh
-go run github.com/guettli/pre-commit-branch-up-to-date@latest sync
+go run github.com/guettli/sync-branch@latest sync
 ```
 
 ## Development
 
 ```sh
-git clone https://github.com/guettli/pre-commit-branch-up-to-date
-cd pre-commit-branch-up-to-date
+git clone https://github.com/guettli/sync-branch
+cd sync-branch
 go build ./...
 ```
 
