@@ -35,7 +35,15 @@ To merge upstream base branch commits (Step 4), `sync-branch` needs to know what
 
 
 
-## Installation
+## Standalone Usage
+
+You can run the sync check directly as a standalone tool without any installation using `go run`:
+
+```sh
+go run github.com/guettli/sync-branch@latest sync
+```
+
+## Usage as pre-commit hook
 
 Add the hook to your `.pre-commit-config.yaml`:
 
@@ -94,14 +102,6 @@ token = …
 | Forge API unreachable / no token | Warn and skip base-branch check |
 | Already on the base branch | Skip base-branch merge |
 | Merge conflict | Abort commit; ask user to resolve |
-
-## Running manually
-
-You can run the check directly without a `git commit` trigger:
-
-```sh
-go run github.com/guettli/sync-branch@latest sync
-```
 
 ## Development
 
