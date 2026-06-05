@@ -1,3 +1,4 @@
+dummy test to test child-pr
 # pre-commit-branch-up-to-date
 
 A [pre-commit](https://pre-commit.com) hook that keeps your local branch in sync
