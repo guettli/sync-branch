@@ -31,9 +31,7 @@ branch (e.g. main) into your local branch before every commit.`,
 		Use:   "sync",
 		Short: "Fetch origin and merge any new commits into the current branch",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			return run(ctx)
+			return Sync("")
 		},
 		SilenceUsage: true,
 	}
@@ -43,6 +41,23 @@ branch (e.g. main) into your local branch before every commit.`,
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+// Sync checks and updates the local branch in the specified git directory.
+// If gitDir is empty, the current working directory is used.
+func Sync(gitDir string) error {
+	if gitDir != "" {
+		cwd, err := os.Getwd()
+		if err == nil {
+			defer os.Chdir(cwd)
+		}
+		if err := os.Chdir(gitDir); err != nil {
+			return fmt.Errorf("change to git directory %q: %w", gitDir, err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return run(ctx)
 }
 
 func run(ctx context.Context) error {

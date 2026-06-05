@@ -104,6 +104,20 @@ token = …
 | Already on the base branch | Skip base-branch merge |
 | Merge conflict | Abort commit; ask user to resolve |
 
+## Go API
+
+You can import the module and call the exported `Sync` function in your own Go programs:
+
+```go
+import syncbranch "github.com/guettli/sync-branch"
+
+// Sync checks and updates the local branch in the specified directory.
+// If the directory path is empty, it uses the current working directory.
+err := syncbranch.Sync("/path/to/git-repo")
+```
+
+For more details on the underlying forge integration, see the [go-pkgs/forge documentation on pkg.go.dev](https://pkg.go.dev/github.com/git-pkgs/forge).
+
 ## Development
 
 ```sh

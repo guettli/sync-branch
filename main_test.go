@@ -257,6 +257,49 @@ func TestIntegration(t *testing.T) {
 	}
 }
 
+func TestSyncFunc(t *testing.T) {
+	// Create a temp directory for a new git repository
+	tempDir, err := os.MkdirTemp("", "sync-branch-func-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initialize git repo in the temp dir
+	gitInit := exec.Command("git", "init")
+	gitInit.Dir = tempDir
+	if err := gitInit.Run(); err != nil {
+		t.Fatalf("failed to git init: %v", err)
+	}
+
+	// Create an initial commit
+	if err := os.WriteFile(filepath.Join(tempDir, "initial.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	gitAdd := exec.Command("git", "add", "initial.txt")
+	gitAdd.Dir = tempDir
+	if err := gitAdd.Run(); err != nil {
+		t.Fatalf("failed to git add: %v", err)
+	}
+
+	// Set local config to mock commit signature
+	exec.Command("git", "-C", tempDir, "config", "user.name", "Test User").Run()
+	exec.Command("git", "-C", tempDir, "config", "user.email", "test@example.com").Run()
+
+	gitCommit := exec.Command("git", "commit", "-m", "initial commit")
+	gitCommit.Dir = tempDir
+	if err := gitCommit.Run(); err != nil {
+		t.Fatalf("failed to git commit: %v", err)
+	}
+
+	// Calling Sync should succeed (or exit gracefully for detached HEAD / no remote)
+	err = Sync(tempDir)
+	if err != nil {
+		t.Fatalf("expected Sync to succeed or warn, but got error: %v", err)
+	}
+}
+
 func TestDetachedHEAD(t *testing.T) {
 	currentBranch, err := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
