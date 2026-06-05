@@ -24,7 +24,7 @@ To merge upstream base branch commits (Step 4), `sync-branch` needs to know what
 2. **Forge API Fallback:** If not set, it queries the forge API (GitHub, GitLab, or Forgejo — auto-detected from the remote URL via [git-pkgs/forge](https://github.com/git-pkgs/forge)) to detect the repository's default branch.
 3. **Auto-set config:** Once detected, it saves this base branch to `branch.<your-branch>.vscode-merge-base` in your local git config.
 
-### Why this is a great trick:
+### Details:
 * **Performance / Offline:** Subsequent runs on the same branch are instant and don't need network access or API tokens because the base branch is cached locally.
 * **VS Code Integration:** VS Code and extensions (like GitLens) natively use `branch.<branch>.vscode-merge-base` to determine the comparison base branch for showing Incoming/Outgoing changes in the Source Control view. By setting this config value, `sync-branch` configures VS Code automatically.
 * **Custom Base Branches:** If your branch is based on another feature branch instead of `main`, you can manually change this config value:
