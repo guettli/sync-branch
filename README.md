@@ -83,7 +83,7 @@ token = …
 You can run the check directly without a `git commit` trigger:
 
 ```sh
-go run github.com/guettli/pre-commit-branch-up-to-date@latest check
+go run github.com/guettli/pre-commit-branch-up-to-date@latest sync
 ```
 
 ## Development

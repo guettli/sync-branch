@@ -24,7 +24,7 @@ branch (e.g. main) into your local branch before every commit.`,
 	}
 
 	checkCmd := &cobra.Command{
-		Use:   "check",
+		Use:   "sync",
 		Short: "Fetch origin and merge any new commits into the current branch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
