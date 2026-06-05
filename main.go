@@ -11,14 +11,32 @@ import (
 	"time"
 
 	forge "github.com/git-pkgs/forge"
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	rootCmd := &cobra.Command{
+		Use:   "pre-commit-branch-up-to-date",
+		Short: "Keep your local branch in sync with origin",
+		Long: `pre-commit-branch-up-to-date is a pre-commit hook that fetches origin
+and merges any new commits from origin/<branch> and the repository's base
+branch (e.g. main) into your local branch before every commit.`,
+	}
 
-	if err := run(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, "branch-up-to-date:", err)
+	checkCmd := &cobra.Command{
+		Use:   "check",
+		Short: "Fetch origin and merge any new commits into the current branch",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			return run(ctx)
+		},
+		SilenceUsage: true,
+	}
+
+	rootCmd.AddCommand(checkCmd)
+
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
@@ -37,7 +55,7 @@ func run(ctx context.Context) error {
 		return nil // no origin remote configured
 	}
 
-	// Fetch to update remote-tracking refs.
+	fmt.Printf("Fetching origin...\n")
 	if err := gitRun("fetch", "--quiet", "origin"); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: git fetch origin failed: %v\n", err)
 		// Continue with stale remote refs rather than blocking the commit.
@@ -46,25 +64,32 @@ func run(ctx context.Context) error {
 	// Step 1: integrate any new commits from origin/<branch>.
 	originRef := "origin/" + branch
 	behind, err := countBehind("HEAD", originRef)
-	if err == nil && behind > 0 {
-		fmt.Printf("Merging %d commit(s) from %s into %s\n", behind, originRef, branch)
-		if err := gitRun("merge", "--ff-only", originRef); err != nil {
-			// Fast-forward failed; fall back to a regular merge.
-			if err := gitRun("merge", originRef); err != nil {
-				return fmt.Errorf("merge %s failed: %w\n  Resolve conflicts, then retry the commit", originRef, err)
+	if err == nil {
+		if behind > 0 {
+			fmt.Printf("Merging %d commit(s) from %s into %s\n", behind, originRef, branch)
+			if err := gitRun("merge", "--ff-only", originRef); err != nil {
+				// Fast-forward failed; fall back to a regular merge.
+				if err := gitRun("merge", originRef); err != nil {
+					return fmt.Errorf("merge %s failed: %w\n  Resolve conflicts, then retry the commit", originRef, err)
+				}
 			}
+		} else {
+			fmt.Printf("%s is up to date with %s\n", branch, originRef)
 		}
 	}
 
 	// Step 2: detect the repository's base branch and integrate its new commits.
+	fmt.Printf("Detecting base branch...\n")
 	baseBranch, err := detectBaseBranch(ctx, remoteURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot detect base branch: %v\n", err)
 		return nil
 	}
+	fmt.Printf("Base branch: %s\n", baseBranch)
 
 	if branch == baseBranch {
-		return nil // already on the base branch, nothing more to do
+		fmt.Printf("Already on base branch, skipping base-branch merge\n")
+		return nil
 	}
 
 	baseRef := "origin/" + baseBranch
@@ -77,6 +102,8 @@ func run(ctx context.Context) error {
 		if err := gitRun("merge", baseRef); err != nil {
 			return fmt.Errorf("merge %s failed: %w\n  Resolve conflicts, then retry the commit", baseRef, err)
 		}
+	} else {
+		fmt.Printf("%s is up to date with %s\n", branch, baseRef)
 	}
 
 	return nil

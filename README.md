@@ -70,13 +70,21 @@ token = …
 ## Behaviour details
 
 | Situation | Action |
-|-----------|--------|
+| --------- | ------ |
 | Detached HEAD | Skip (nothing to merge) |
 | No `origin` remote | Skip |
 | `git fetch` fails (network issue) | Warn and continue with stale refs |
 | Forge API unreachable / no token | Warn and skip base-branch check |
 | Already on the base branch | Skip base-branch merge |
 | Merge conflict | Abort commit; ask user to resolve |
+
+## Running manually
+
+You can run the check directly without a `git commit` trigger:
+
+```sh
+go run github.com/guettli/pre-commit-branch-up-to-date@latest check
+```
 
 ## Development
 

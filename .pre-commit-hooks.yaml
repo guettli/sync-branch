@@ -5,6 +5,6 @@
     the repository's base branch via the forge API (GitHub / GitLab / Forgejo)
     and merges any new base-branch commits into the current branch.
   language: golang
-  entry: pre-commit-branch-up-to-date
+  entry: pre-commit-branch-up-to-date check
   pass_filenames: false
   always_run: true
