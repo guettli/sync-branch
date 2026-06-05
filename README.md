@@ -1,22 +1,39 @@
 # sync-branch
 
-A [pre-commit](https://pre-commit.com) hook that keeps your local branch in sync before every commit
-— no more "forgot to pull" surprises.
+`sync-branch` is a tool to sync (update) the local branch by fetching `origin` and merging upstream changes. It can be run either as a standalone CLI tool or integrated as a [pre-commit](https://pre-commit.com) hook to prevent "forgot to pull" surprises.
 
 ## What it does
 
-Each time you run `git commit`, the hook:
+When run, `sync-branch`:
 
 1. **Fetches** `origin` to refresh remote-tracking refs.
 2. **Merges** any new commits from `origin/<your-branch>` into your local branch
    (fast-forward when possible, regular merge otherwise).
-3. **Detects the base branch** (e.g. `main`) by calling the forge API
-   (GitHub, GitLab, or Forgejo — auto-detected from the remote URL via [git-pkgs/forge](https://github.com/git-pkgs/forge)).
+3. **Detects the base branch** (e.g. `main`) using the `vscode-merge-base` trick (see details below).
 4. **Merges** any new commits from `origin/<base-branch>` into your local branch
    so you stay on top of upstream changes.
 
-If a merge produces conflicts, the commit is aborted and you are asked to resolve
+If a merge produces conflicts, the operation is aborted and you are asked to resolve
 them first.
+
+## The vscode-merge-base trick
+
+To merge upstream base branch commits (Step 4), `sync-branch` needs to know what the base branch is (e.g. `origin/main` vs `origin/develop` vs a parent feature branch):
+
+1. **Check local git config:** It looks for `branch.<your-branch>.vscode-merge-base` in your local git configuration.
+2. **Forge API Fallback:** If not set, it queries the forge API (GitHub, GitLab, or Forgejo — auto-detected from the remote URL via [git-pkgs/forge](https://github.com/git-pkgs/forge)) to detect the repository's default branch.
+3. **Auto-set config:** Once detected, it saves this base branch to `branch.<your-branch>.vscode-merge-base` in your local git config.
+
+### Why this is a great trick:
+* **Performance / Offline:** Subsequent runs on the same branch are instant and don't need network access or API tokens because the base branch is cached locally.
+* **VS Code Integration:** VS Code and extensions (like GitLens) natively use `branch.<branch>.vscode-merge-base` to determine the comparison base branch for showing Incoming/Outgoing changes in the Source Control view. By setting this config value, `sync-branch` configures VS Code automatically.
+* **Custom Base Branches:** If your branch is based on another feature branch instead of `main`, you can manually change this config value:
+  ```sh
+  git config branch.my-feature.vscode-merge-base origin/parent-feature
+  ```
+  `sync-branch` will then automatically pull and merge from `origin/parent-feature` instead.
+
+
 
 ## Installation
 
