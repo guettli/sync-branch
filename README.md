@@ -51,7 +51,7 @@ Add the hook to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/guettli/sync-branch
-    rev: v0.0.8
+    rev: v0.0.9
     hooks:
       - id: branch-up-to-date
 ```
