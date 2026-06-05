@@ -1,8 +1,12 @@
 repos:
-  - repo: https://github.com/guettli/pre-commit-branch-up-to-date
-    rev: v0.0.3
+  - repo: local
     hooks:
       - id: branch-up-to-date
+        name: Branch up to date
+        language: system
+        entry: go run .
+        pass_filenames: false
+        always_run: true
   - repo: local
     hooks:
       - id: check-pre-push-hook

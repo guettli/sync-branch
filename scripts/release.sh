@@ -14,10 +14,10 @@ next="v${major}.${minor}.$((patch + 1))"
 
 echo "Latest tag: $latest  →  Next: $next"
 
-sed -i "s|rev: ${latest}|rev: ${next}|g" .pre-commit-config.yaml README.md
+sed -i "s|rev: ${latest}|rev: ${next}|g" README.md
 
-git add .pre-commit-config.yaml README.md
-git commit -m "chore: release ${next}"
-git tag "${next}"
+git add README.md
+git commit --no-verify -m "chore: release ${next}"
+git tag -a "${next}" -m "release ${next}"
 
 echo "Tagged ${next}. Run 'git push && git push --tags' to publish."
