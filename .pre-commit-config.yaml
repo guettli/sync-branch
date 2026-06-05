@@ -3,3 +3,11 @@ repos:
     rev: v0.0.2
     hooks:
       - id: branch-up-to-date
+  - repo: local
+    hooks:
+      - id: check-pre-push-hook
+        name: pre-push hook installed
+        language: script
+        entry: scripts/check-pre-push-hook.sh
+        pass_filenames: false
+        always_run: true

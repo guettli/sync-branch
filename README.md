@@ -87,6 +87,32 @@ cd pre-commit-branch-up-to-date
 go build ./...
 ```
 
+Set up the local hooks:
+
+```sh
+cp scripts/pre-push-hook.sh .git/hooks/pre-push
+pre-commit install
+```
+
+The pre-commit config in this repo uses two hooks:
+
+- `branch-up-to-date` — the hook itself (dogfooding).
+- `check-pre-push-hook` — verifies the pre-push hook is installed on every commit.
+
+The pre-push hook (`scripts/pre-push-hook.sh`) runs only when pushing to `main`
+and checks that the `rev:` in `.pre-commit-config.yaml` and `README.md` both
+match the latest git tag.
+
+### Releasing
+
+```sh
+./scripts/release.sh
+git push && git push --tags
+```
+
+`release.sh` reads the latest semver tag from git, bumps the patch version,
+updates `rev:` in `.pre-commit-config.yaml` and `README.md`, commits, and tags.
+
 ## License
 
 MIT
