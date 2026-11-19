@@ -15,3 +15,9 @@ repos:
         entry: scripts/check-pre-push-hook.sh
         pass_filenames: false
         always_run: true
+
+  # Block commits that contain secrets.
+  - repo: https://github.com/betterleaks/betterleaks
+    rev: v1.10.1
+    hooks:
+      - id: betterleaks
